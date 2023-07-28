@@ -202,7 +202,9 @@ class core_course_management_renderer extends plugin_renderer_base {
                 'data-selected' => $activecategory ? '1' : '0',
                 'data-visible' => $category->visible ? '1' : '0',
                 'role' => 'treeitem',
-                'aria-expanded' => $isexpanded ? 'true' : 'false'
+                'aria-expanded' => $isexpanded ? 'true' : 'false',
+                'onmouseover' => '$(this).attr("style", "z-index: 2;");',
+                'onmouseout' => '$(this).attr("style", "");'
         );
         $text = $category->get_formatted_name();
         if (($parent = $category->get_parent_coursecat()) && $parent->id) {
