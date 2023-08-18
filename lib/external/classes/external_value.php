@@ -36,18 +36,17 @@ class external_value extends external_description {
      *
      * @param mixed $type
      * @param string $desc
-     * @param int $required
+
      * @param mixed $default
      * @param bool $allownull
      */
     public function __construct(
         $type,
         $desc = '',
-        $required = VALUE_REQUIRED,
         $default = null,
         $allownull = NULL_ALLOWED
     ) {
-        parent::__construct($desc, $required, $default);
+        parent::__construct($desc, VALUE_REQUIRED, $default);
         $this->type = $type;
         $this->allownull = $allownull;
     }
