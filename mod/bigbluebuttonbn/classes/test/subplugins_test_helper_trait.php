@@ -44,6 +44,7 @@ trait subplugins_test_helper_trait {
     protected function setup_fake_plugin(string $pluginname): void {
         global $CFG;
         require_once("$CFG->libdir/upgradelib.php");
+        $this->setAdminUser();
         $bbbextpath = "{$CFG->dirroot}/mod/bigbluebuttonbn/tests/fixtures/extension";
         // This is similar to accesslib_test::setup_fake_plugin.
         $mockedcomponent = new ReflectionClass(core_component::class);
