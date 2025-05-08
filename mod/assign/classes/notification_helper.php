@@ -16,6 +16,7 @@
 
 namespace mod_assign;
 
+use assign;
 use DateTime;
 use core\output\html_writer;
 
@@ -79,8 +80,9 @@ class notification_helper {
                   JOIN {course} c ON a.course = c.id
                   JOIN {modules} m ON cm.module = m.id AND m.name = :modulename
              LEFT JOIN {assign_overrides} ao ON a.id = ao.assignid
-                 WHERE (a.duedate < :futuretime OR ao.duedate < :ao_futuretime)
-                   AND (a.duedate > :timenow OR ao.duedate > :ao_timenow)
+             LEFT JOIN {assign_user_flags} auf ON a.id = auf.assignment
+                 WHERE (a.duedate < :futuretime OR ao.duedate < :ao_futuretime OR auf.extensionduedate < :auf_futuretime)
+                   AND (a.duedate > :timenow OR ao.duedate > :ao_timenow OR auf.extensionduedate > :auf_timenow)
                    AND cm.visible = 1
                    AND c.visible = 1";
 
@@ -89,6 +91,8 @@ class notification_helper {
             'futuretime' => $futuretime,
             'ao_timenow' => $timenow,
             'ao_futuretime' => $futuretime,
+            'auf_timenow' => $timenow,
+            'auf_futuretime' => $futuretime,
             'modulename' => 'assign',
         ];
 
@@ -119,8 +123,9 @@ class notification_helper {
                   JOIN {course} c ON a.course = c.id
                   JOIN {modules} m ON cm.module = m.id AND m.name = :modulename
              LEFT JOIN {assign_overrides} ao ON a.id = ao.assignid
-                 WHERE (a.duedate < :dd_timenow OR ao.duedate < :dd_ao_timenow)
-                   AND (a.duedate > :dd_timewindow OR ao.duedate > :dd_ao_timewindow)
+             LEFT JOIN {assign_user_flags} auf ON a.id = auf.assignment
+                 WHERE (a.duedate < :dd_timenow OR ao.duedate < :dd_ao_timenow OR auf.extensionduedate < :dd_auf_timenow)
+                   AND (a.duedate > :dd_timewindow OR ao.duedate > :dd_ao_timewindow OR auf.extensionduedate > :dd_auf_timewindow)
                    AND ((a.cutoffdate > :co_timenow OR a.cutoffdate = 0) OR
                        (ao.cutoffdate > :co_ao_timenow OR ao.cutoffdate = 0))
                    AND cm.visible = 1
@@ -129,8 +134,10 @@ class notification_helper {
         $params = [
             'dd_timenow' => $timenow,
             'dd_ao_timenow' => $timenow,
+            'dd_auf_timenow' => $timenow,
             'dd_timewindow' => $timewindow,
             'dd_ao_timewindow' => $timewindow,
+            'dd_auf_timewindow' => $timewindow,
             'co_timenow' => $timenow,
             'co_ao_timenow' => $timenow,
             'modulename' => 'assign',
@@ -156,8 +163,9 @@ class notification_helper {
                   JOIN {course} c ON a.course = c.id
                   JOIN {modules} m ON cm.module = m.id AND m.name = :modulename
              LEFT JOIN {assign_overrides} ao ON a.id = ao.assignid
-                 WHERE (a.duedate <= :endofday OR ao.duedate <= :ao_endofday)
-                   AND (a.duedate >= :startofday OR ao.duedate >= :ao_startofday)
+             LEFT JOIN {assign_user_flags} auf ON a.id = auf.assignment
+                 WHERE (a.duedate <= :endofday OR ao.duedate <= :ao_endofday OR auf.extensionduedate <= :auf_endofday)
+                   AND (a.duedate >= :startofday OR ao.duedate >= :ao_startofday OR auf.extensionduedate >= :auf_startofday)
                    AND cm.visible = 1
                    AND c.visible = 1";
 
@@ -166,6 +174,8 @@ class notification_helper {
             'endofday' => $day['end'],
             'ao_startofday' => $day['start'],
             'ao_endofday' => $day['end'],
+            'auf_startofday' => $day['start'],
+            'auf_endofday' => $day['end'],
             'modulename' => 'assign',
         ];
 
@@ -196,8 +206,9 @@ class notification_helper {
                   JOIN {enrol} e ON c.id = e.courseid
                   JOIN {user_enrolments} ue ON e.id = ue.enrolid
              LEFT JOIN {assign_overrides} ao ON a.id = ao.assignid
-                 WHERE (a.duedate <= :endofday OR ao.duedate <= :ao_endofday)
-                   AND (a.duedate >= :startofday OR ao.duedate >= :ao_startofday)
+             LEFT JOIN {assign_user_flags} auf ON a.id = auf.assignment
+                 WHERE (a.duedate <= :endofday OR ao.duedate <= :ao_endofday OR auf.extensionduedate <= :auf_endofday)
+                   AND (a.duedate >= :startofday OR ao.duedate >= :ao_startofday OR auf.extensionduedate >= :auf_startofday)
                    AND ue.userid = :userid
                    AND cm.visible = 1
                    AND c.visible = 1
@@ -208,6 +219,8 @@ class notification_helper {
             'endofday' => $day['end'],
             'ao_startofday' => $day['start'],
             'ao_endofday' => $day['end'],
+            'auf_startofday' => $day['start'],
+            'auf_endofday' => $day['end'],
             'modulename' => 'assign',
             'userid' => $userid,
         ];
@@ -250,8 +263,8 @@ class notification_helper {
                 continue;
             }
 
-            // Determine key dates with respect to any overrides.
-            $duedate = $assignmentobj->override_exists($user->id)->duedate ?? $assignmentobj->get_instance()->duedate;
+            // Determine key dates with respect to any overrides or extensions.
+            $duedate = self::get_user_duedate($assignmentobj, $user->id);
             $cutoffdate = $assignmentobj->override_exists($user->id)->cutoffdate ?? $assignmentobj->get_instance()->cutoffdate;
 
             // If the due date has no value, unset this user.
@@ -360,7 +373,7 @@ class notification_helper {
 
         // Check if the due date still within range.
         $assignmentobj->update_effective_access($userid);
-        $duedate = $assignmentobj->get_instance($userid)->duedate;
+        $duedate = self::get_user_duedate($assignmentobj, $userid);
         $range = [
             'lower' => self::get_time_now(),
             'upper' => self::get_future_time(self::INTERVAL_DUE_SOON),
@@ -419,7 +432,6 @@ class notification_helper {
         $message->fullmessageformat = FORMAT_HTML;
         $message->fullmessage = html_to_text($messagedata['html']);
         $message->fullmessagehtml = $messagedata['html'];
-        $message->fullmessagesms = $messagedata['sms'];
         $message->smallmessage = $messagedata['subject'];
         $message->notification = 1;
         $message->contexturl = $messagedata['url'];
@@ -463,7 +475,7 @@ class notification_helper {
 
         // Check if the due date still considered overdue.
         $assignmentobj->update_effective_access($userid);
-        $duedate = $assignmentobj->get_instance($userid)->duedate;
+        $duedate = self::get_user_duedate($assignmentobj, $userid);
         if ($duedate > self::get_time_now()) {
             return;
         }
@@ -568,7 +580,7 @@ class notification_helper {
 
             // Check if the due date is still within range.
             $assignmentobj->update_effective_access($userid);
-            $duedate = $assignmentobj->get_instance($userid)->duedate;
+            $duedate = self::get_user_duedate($assignmentobj, $userid);
             $futuretime = self::get_future_time(self::INTERVAL_DUE_DIGEST);
             $day = self::get_day_start_and_end($futuretime);
             $range = [
@@ -626,7 +638,6 @@ class notification_helper {
             'user' => $userobject,
             'subject' => get_string('assignmentduedigestsubject', 'mod_assign'),
             'html' => get_string('assignmentduedigesthtml', 'mod_assign', $stringparams),
-            'sms' => get_string('assignmentduedigestsms', 'mod_assign', $stringparams),
         ];
 
         $message = new \core\message\message();
@@ -643,6 +654,31 @@ class notification_helper {
         $message->notification = 1;
 
         message_send($message);
+    }
+
+    /**
+     * Return a user due date with respect to any overrides or extensions.
+     *
+     * @param assign $assignmentobj
+     * @param int $userid
+     * @return mixed
+     */
+    private static function get_user_duedate(assign $assignmentobj, int $userid) {
+        global $DB;
+
+        $duedate = $assignmentobj->override_exists($userid)->duedate ?? $assignmentobj->get_instance($userid)->duedate;
+
+        // Get a user due date extension where available.
+        $assignmentid = $assignmentobj->get_instance()->id;
+        $params = ['assignment' => $assignmentid, 'userid' => $userid];
+        $extensiondate = $DB->get_field('assign_user_flags', 'extensionduedate', $params);
+
+        // Use the date that gives the most time to the student.
+        if ($extensiondate > $duedate) {
+            $duedate = $extensiondate;
+        }
+
+        return $duedate;
     }
 
     /**

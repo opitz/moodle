@@ -45,7 +45,7 @@ class dates extends activity_dates {
      * @return array
      */
     protected function get_dates(): array {
-        global $CFG;
+        global $CFG, $DB;
 
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
@@ -57,6 +57,15 @@ class dates extends activity_dates {
 
         $timeopen = $this->cm->customdata['allowsubmissionsfromdate'] ?? null;
         $timedue = $this->cm->customdata['duedate'] ?? null;
+
+        // Get user extensions where available.
+        $params = ['assignment' => $this->cm->instance, 'userid' => $this->userid];
+        $extensiondate = $DB->get_field('assign_user_flags', 'extensionduedate', $params);
+
+        // Use the date that gives the most time to the student.
+        if ($extensiondate > $timedue) {
+            $timedue = $extensiondate;
+        }
 
         $activitygroup = groups_get_activity_group($this->cm, true);
         if ($activitygroup) {
