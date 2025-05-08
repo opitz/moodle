@@ -53,6 +53,15 @@ class dates extends activity_dates {
         $timeopen = $this->cm->customdata['allowsubmissionsfromdate'] ?? null;
         $timedue = $this->cm->customdata['duedate'] ?? null;
 
+        // Get user extensions where available.
+        $params = ['assignment' => $this->cm->instance, 'userid' => $this->userid];
+        $extensiondate = $DB->get_field('assign_user_flags', 'extensionduedate', $params);
+
+        // Use the date that gives the most time to the student.
+        if ($extensiondate > $timedue) {
+            $timedue = $extensiondate;
+        }
+
         $activitygroup = groups_get_activity_group($this->cm, true);
         if ($activitygroup) {
             if ($assign->can_view_grades()) {

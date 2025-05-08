@@ -25,10 +25,10 @@
 
 declare(strict_types=1);
 
-namespace mod_assign;
 
 use advanced_testcase;
 use cm_info;
+use context_module;
 use core\activity_dates;
 
 /**
@@ -37,13 +37,13 @@ use core\activity_dates;
  * @copyright 2021 Shamim Rezaie <shamim@moodle.com>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class dates_test extends advanced_testcase {
+final class dates_test extends advanced_testcase {
 
     /**
      * Data provider for get_dates_for_module().
      * @return array[]
      */
-    public function get_dates_for_module_provider(): array {
+    public static function get_dates_for_module_provider(): array {
         $now = time();
         $before = $now - DAYSECS;
         $earlier = $before - DAYSECS;
@@ -52,22 +52,22 @@ class dates_test extends advanced_testcase {
 
         return [
             'without any dates' => [
-                null, null, null, null, null, null, []
+                null, null, null, null, null, null, null, []
             ],
             'only with opening time' => [
-                $after, null, null, null, null, null, [
+                $after, null, null, null, null, null, null, [
                     ['label' => get_string('activitydate:submissionsopen', 'mod_assign'), 'timestamp' => $after,
                         'dataid' => 'allowsubmissionsfromdate'],
                 ]
             ],
             'only with closing time' => [
-                null, $after, null, null, null, null, [
+                null, $after, null, null, null, null, null, [
                     ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $after,
                         'dataid' => 'duedate'],
                 ]
             ],
             'with both times' => [
-                $after, $later, null, null, null, null, [
+                $after, $later, null, null, null, null, null, [
                     ['label' => get_string('activitydate:submissionsopen', 'mod_assign'), 'timestamp' => $after,
                         'dataid' => 'allowsubmissionsfromdate'],
                     ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
@@ -75,7 +75,7 @@ class dates_test extends advanced_testcase {
                 ]
             ],
             'between the dates' => [
-                $before, $after, null, null, null, null, [
+                $before, $after, null, null, null, null, null, [
                     ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $before,
                         'dataid' => 'allowsubmissionsfromdate'],
                     ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $after,
@@ -83,7 +83,7 @@ class dates_test extends advanced_testcase {
                 ]
             ],
             'dates are past' => [
-                $earlier, $before, null, null, null, null, [
+                $earlier, $before, null, null, null, null, null, [
                     ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $earlier,
                         'dataid' => 'allowsubmissionsfromdate'],
                     ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $before,
@@ -91,7 +91,7 @@ class dates_test extends advanced_testcase {
                 ]
             ],
             'with user override' => [
-                $before, $after, $earlier, $later, null, null, [
+                $before, $after, $earlier, $later, null, null, null, [
                     ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $earlier,
                         'dataid' => 'allowsubmissionsfromdate'],
                     ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
@@ -99,7 +99,7 @@ class dates_test extends advanced_testcase {
                 ]
             ],
             'with group override' => [
-                $before, $after, null, null, $earlier, $later, [
+                $before, $after, null, null, null, $earlier, $later, [
                     ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $earlier,
                         'dataid' => 'allowsubmissionsfromdate'],
                     ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
@@ -107,7 +107,31 @@ class dates_test extends advanced_testcase {
                 ]
             ],
             'with both user and group overrides' => [
-                $before, $after, $earlier, $later, $earlier - DAYSECS, $later + DAYSECS, [
+                $before, $after, $earlier, $later, null, $earlier - DAYSECS, $later + DAYSECS, [
+                    ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $earlier,
+                        'dataid' => 'allowsubmissionsfromdate'],
+                    ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
+                        'dataid' => 'duedate'],
+                ]
+            ],
+            'with user extension' => [
+                $before, $after, null, null, $later, null, null, [
+                    ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $before,
+                        'dataid' => 'allowsubmissionsfromdate'],
+                    ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
+                        'dataid' => 'duedate'],
+                ]
+            ],
+            'with user override and user extension - extension wins' => [
+                $earlier, $before, null, $after, $later, null, null, [
+                    ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $earlier,
+                        'dataid' => 'allowsubmissionsfromdate'],
+                    ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
+                        'dataid' => 'duedate'],
+                ]
+            ],
+            'with user override and user extension - override wins' => [
+                $earlier, $before, null, $later, $after, null, null, [
                     ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $earlier,
                         'dataid' => 'allowsubmissionsfromdate'],
                     ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
@@ -125,14 +149,17 @@ class dates_test extends advanced_testcase {
      * @param int|null $due Assignment's due date.
      * @param int|null $userfrom The user override for opening submissions.
      * @param int|null $userdue The user override for due date.
+     * @param int|null $extensiondue The user extension for due date.
      * @param int|null $groupfrom The group override for opening submissions.
      * @param int|null $groupdue The group override for due date.
      * @param array $expected The expected value of calling get_dates_for_module()
      */
     public function test_get_dates_for_module(?int $from, ?int $due,
-            ?int $userfrom, ?int $userdue,
-            ?int $groupfrom, ?int $groupdue,
-            array $expected) {
+                                              ?int $userfrom, ?int $userdue, ?int $extensiondue,
+                                              ?int $groupfrom, ?int $groupdue,
+                                              array $expected): void {
+
+        global $DB;
 
         $this->resetAfterTest();
         $generator = $this->getDataGenerator();
@@ -142,7 +169,6 @@ class dates_test extends advanced_testcase {
         $course = $generator->create_course();
         $user = $generator->create_user();
         $generator->enrol_user($user->id, $course->id);
-
         $data = ['course' => $course->id];
         if ($from) {
             $data['allowsubmissionsfromdate'] = $from;
@@ -152,7 +178,7 @@ class dates_test extends advanced_testcase {
         }
         $assign = $assigngenerator->create_instance($data);
 
-        if ($userfrom || $userdue || $groupfrom || $groupdue) {
+        if ($userfrom || $userdue || $groupfrom || $groupdue || $extensiondue) {
             $generator->enrol_user($user->id, $course->id);
             $group = $generator->create_group(['courseid' => $course->id]);
             $generator->create_group_member(['groupid' => $group->id, 'userid' => $user->id]);
@@ -172,6 +198,26 @@ class dates_test extends advanced_testcase {
                     'groupid' => $group->id,
                     'allowsubmissionsfromdate' => $groupfrom,
                     'duedate' => $groupdue,
+                ]);
+            }
+
+            if($extensiondue) {
+                // Enrol a teacher with the capability to grant an extension.
+                $context = context_module::instance($assign->cmid);
+                $teacher = $generator->create_user();
+                $this->getDataGenerator()->enrol_user($teacher->id, $course->id);
+
+                // Allow the grant extension capability for this role and assign it to the teacher.
+                $roleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher']);
+                assign_capability('mod/assign:grantextension', CAP_ALLOW, $roleid, $context->id);
+                role_assign($roleid, $teacher->id, $context->id);
+
+                $this->setUser($teacher); // Act as the teacher.
+
+                $assigngenerator->create_extension([
+                    'cmid' => $assign->cmid,
+                    'userid' => $user->id,
+                    'extensionduedate' => $extensiondue,
                 ]);
             }
         }
