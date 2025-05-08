@@ -793,14 +793,6 @@ class renderer extends \plugin_renderer_base {
                     $this->add_table_row_tuple($t, $cell1content, $cell2content);
                 }
             }
-
-            if ($status->extensionduedate) {
-                // Extension date.
-                $cell1content = get_string('extensionduedate', 'assign');
-                $cell2content = userdate($status->extensionduedate);
-                $this->add_table_row_tuple($t, $cell1content, $cell2content);
-                $duedate = $status->extensionduedate;
-            }
         }
 
         // Time remaining.
