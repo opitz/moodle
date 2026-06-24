@@ -52,6 +52,29 @@ class dates extends activity_dates {
         $baseopen = $timeopen;
         $baseclose = $timeclose;
         $overrides = quiz_overrides_cache_manager::get_overrides((int) $this->cm->instance, $this->userid);
+        usort($overrides, static function(\stdClass $a, \stdClass $b) use ($baseopen, $baseclose): int {
+            $aunlimited = isset($a->timeclose) && empty($a->timeclose);
+            $bunlimited = isset($b->timeclose) && empty($b->timeclose);
+            if ($aunlimited !== $bunlimited) {
+                return $aunlimited ? -1 : 1;
+            }
+
+            $aclose = $a->timeclose ?? $baseclose;
+            $bclose = $b->timeclose ?? $baseclose;
+            $closecompare = ((int) ($bclose ?? 0)) <=> ((int) ($aclose ?? 0));
+            if ($closecompare) {
+                return $closecompare;
+            }
+
+            $aopen = $a->timeopen ?? $baseopen;
+            $bopen = $b->timeopen ?? $baseopen;
+            $opencompare = ((int) ($aopen ?? 0)) <=> ((int) ($bopen ?? 0));
+            if ($opencompare) {
+                return $opencompare;
+            }
+
+            return ((int) ($a->id ?? 0)) <=> ((int) ($b->id ?? 0));
+        });
 
         foreach ($overrides as $override) {
             $overrideopen = $override->timeopen ?? $baseopen;
