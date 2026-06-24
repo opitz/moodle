@@ -98,6 +98,14 @@ final class dates_test extends advanced_testcase {
                         'dataid' => 'duedate'],
                 ]
             ],
+            'with open-only user override' => [
+                $after, $later, $before, null, null, null, [
+                    ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $before,
+                        'dataid' => 'allowsubmissionsfromdate'],
+                    ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
+                        'dataid' => 'duedate'],
+                ]
+            ],
             'with later start and due date override' => [
                 $before, $after, $later, $later + WEEKSECS, null, null, [
                     ['label' => get_string('activitydate:submissionsopen', 'mod_assign'), 'timestamp' => $later,
