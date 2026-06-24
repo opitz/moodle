@@ -47,8 +47,9 @@ class dates extends activity_dates {
     protected function get_dates(): array {
         global $DB;
 
-        $timeopen = $this->cm->customdata['timeopen'] ?? null;
-        $timeclose = $this->cm->customdata['timeclose'] ?? null;
+        $quiz = $DB->get_record('quiz', ['id' => $this->cm->instance], 'timeopen, timeclose', MUST_EXIST);
+        $timeopen = !empty($quiz->timeopen) ? (int) $quiz->timeopen : null;
+        $timeclose = !empty($quiz->timeclose) ? (int) $quiz->timeclose : null;
 
         $useroverride = $DB->get_record('quiz_overrides', [
             'quiz' => $this->cm->instance,

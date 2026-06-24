@@ -180,4 +180,44 @@ final class dates_test extends advanced_testcase {
         $this->assertEquals($expected, $dates);
     }
 
+    /**
+     * Test get_dates_for_module uses the requested user rather than current user customdata.
+     */
+    public function test_get_dates_for_module_uses_requested_user_dates(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        /** @var \mod_quiz_generator $quizgenerator */
+        $quizgenerator = $generator->get_plugin_generator('mod_quiz');
+
+        $course = $generator->create_course();
+        $requesteduser = $generator->create_and_enrol($course, 'student');
+        $currentuser = $generator->create_and_enrol($course, 'student');
+
+        $now = time();
+        $quiz = $quizgenerator->create_instance([
+            'course' => $course->id,
+            'timeopen' => $now + DAYSECS,
+            'timeclose' => $now + (2 * DAYSECS),
+        ]);
+        $quizgenerator->create_override([
+            'quiz' => $quiz->id,
+            'userid' => $currentuser->id,
+            'timeopen' => $now + (3 * DAYSECS),
+            'timeclose' => $now + (4 * DAYSECS),
+        ]);
+
+        $this->setUser($currentuser);
+
+        $cm = get_coursemodule_from_instance('quiz', $quiz->id);
+        $cm = cm_info::create($cm);
+
+        $dates = activity_dates::get_dates_for_module($cm, (int) $requesteduser->id);
+
+        $this->assertEquals([
+            ['label' => get_string('activitydate:opens', 'course'), 'timestamp' => $now + DAYSECS, 'dataid' => 'timeopen'],
+            ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $now + (2 * DAYSECS),
+                'dataid' => 'timeclose'],
+        ], $dates);
+    }
+
 }
