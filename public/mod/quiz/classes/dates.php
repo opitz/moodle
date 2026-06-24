@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace mod_quiz;
 
 use core\activity_dates;
+use mod_quiz\local\quiz_overrides_cache_manager;
 
 /**
  * Class for fetching the important dates in mod_quiz for a given module instance and a user.
@@ -45,28 +46,10 @@ class dates extends activity_dates {
      * @return array
      */
     protected function get_dates(): array {
-        global $DB;
-
-        $quiz = $DB->get_record('quiz', ['id' => $this->cm->instance], 'timeopen, timeclose', MUST_EXIST);
+        $quiz = $this->cm->get_instance_record();
         $timeopen = !empty($quiz->timeopen) ? (int) $quiz->timeopen : null;
         $timeclose = !empty($quiz->timeclose) ? (int) $quiz->timeclose : null;
-
-        $useroverride = $DB->get_record('quiz_overrides', [
-            'quiz' => $this->cm->instance,
-            'userid' => $this->userid,
-        ]);
-        $overrides = $useroverride ? [$useroverride] : [];
-
-        $groups = groups_get_user_groups((int) $this->cm->course, $this->userid);
-        if (!empty($groups[0])) {
-            [$groupidsql, $params] = $DB->get_in_or_equal(array_values($groups[0]), SQL_PARAMS_NAMED);
-            $params['quizid'] = $this->cm->instance;
-            $overrides = array_merge($overrides, $DB->get_records_select(
-                'quiz_overrides',
-                "quiz = :quizid AND groupid {$groupidsql}",
-                $params,
-            ));
-        }
+        $overrides = quiz_overrides_cache_manager::get_overrides((int) $this->cm->instance, $this->userid);
 
         foreach ($overrides as $override) {
             $overrideopen = $override->timeopen ?? $timeopen;
