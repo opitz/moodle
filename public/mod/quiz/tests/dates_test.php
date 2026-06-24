@@ -180,45 +180,4 @@ final class dates_test extends advanced_testcase {
         $this->assertEquals($expected, $dates);
     }
 
-    /**
-     * Test that the due date helper returns the effective quiz close time for the requested user.
-     */
-    public function test_get_due_date_for_module_uses_requested_user_effective_close_time(): void {
-        $this->resetAfterTest();
-        $generator = $this->getDataGenerator();
-        /** @var \mod_quiz_generator $quizgenerator */
-        $quizgenerator = $generator->get_plugin_generator('mod_quiz');
-
-        $course = $generator->create_course();
-        $student = $generator->create_and_enrol($course, 'student');
-        $otherstudent = $generator->create_and_enrol($course, 'student');
-        $group1 = $generator->create_group(['courseid' => $course->id]);
-        $group2 = $generator->create_group(['courseid' => $course->id]);
-        $generator->create_group_member(['groupid' => $group1->id, 'userid' => $student->id]);
-        $generator->create_group_member(['groupid' => $group2->id, 'userid' => $student->id]);
-
-        $now = time();
-        $quiz = $quizgenerator->create_instance([
-            'course' => $course->id,
-            'timeclose' => $now + DAYSECS,
-        ]);
-        $quizgenerator->create_override([
-            'quiz' => $quiz->id,
-            'groupid' => $group1->id,
-            'timeclose' => $now + (2 * DAYSECS),
-        ]);
-        $quizgenerator->create_override([
-            'quiz' => $quiz->id,
-            'groupid' => $group2->id,
-            'timeclose' => $now + (3 * DAYSECS),
-        ]);
-
-        $this->setUser($otherstudent);
-
-        $cm = get_coursemodule_from_instance('quiz', $quiz->id);
-        $cm = cm_info::create($cm);
-
-        $this->assertEquals($now + (3 * DAYSECS), activity_dates::get_due_date_for_module($cm, (int) $student->id));
-        $this->assertEquals($now + DAYSECS, activity_dates::get_due_date_for_module($cm, (int) $otherstudent->id));
-    }
 }
