@@ -58,6 +58,8 @@ class dates extends activity_dates {
         $instance = $assign->get_instance($this->userid);
         $timeopen = $instance->allowsubmissionsfromdate ?? null;
         $timedue = $instance->duedate ?? null;
+        $baseopen = $timeopen;
+        $basedue = $timedue;
 
         $cache = \cache::make('mod_assign', 'overrides');
         $useroverride = $cache->get("{$this->cm->instance}_u_{$this->userid}");
@@ -74,8 +76,8 @@ class dates extends activity_dates {
         }
 
         foreach ($overrides as $override) {
-            $overrideopen = $override->allowsubmissionsfromdate ?? $timeopen;
-            $overridedue = $override->duedate ?? $timedue;
+            $overrideopen = $override->allowsubmissionsfromdate ?? $baseopen;
+            $overridedue = $override->duedate ?? $basedue;
 
             if (isset($override->duedate) && empty($override->duedate)) {
                 $timeopen = $overrideopen;

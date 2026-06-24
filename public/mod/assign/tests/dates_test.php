@@ -122,6 +122,14 @@ final class dates_test extends advanced_testcase {
                         'dataid' => 'duedate'],
                 ]
             ],
+            'with later partial group due override' => [
+                $before, $after, $later, $later + DAYSECS, null, $later + WEEKSECS, [
+                    ['label' => get_string('activitydate:submissionsopened', 'mod_assign'), 'timestamp' => $before,
+                        'dataid' => 'allowsubmissionsfromdate'],
+                    ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later + WEEKSECS,
+                        'dataid' => 'duedate'],
+                ]
+            ],
         ];
     }
 

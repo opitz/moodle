@@ -49,11 +49,13 @@ class dates extends activity_dates {
         $quiz = $this->cm->get_instance_record();
         $timeopen = !empty($quiz->timeopen) ? (int) $quiz->timeopen : null;
         $timeclose = !empty($quiz->timeclose) ? (int) $quiz->timeclose : null;
+        $baseopen = $timeopen;
+        $baseclose = $timeclose;
         $overrides = quiz_overrides_cache_manager::get_overrides((int) $this->cm->instance, $this->userid);
 
         foreach ($overrides as $override) {
-            $overrideopen = $override->timeopen ?? $timeopen;
-            $overrideclose = $override->timeclose ?? $timeclose;
+            $overrideopen = $override->timeopen ?? $baseopen;
+            $overrideclose = $override->timeclose ?? $baseclose;
 
             if (isset($override->timeclose) && empty($override->timeclose)) {
                 $timeopen = $overrideopen;
