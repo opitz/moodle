@@ -45,13 +45,13 @@ class dates extends activity_dates {
      * @return array
      */
     protected function get_dates(): array {
-        global $CFG, $DB;
+        global $CFG;
 
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
         $this->timedue = null;
 
-        $course = get_course($this->cm->course);
+        $course = get_course((int) $this->cm->course);
         $context = \context_module::instance($this->cm->id);
         $assign = new \assign($context, $this->cm, $course);
 
@@ -59,21 +59,18 @@ class dates extends activity_dates {
         $timeopen = $instance->allowsubmissionsfromdate ?? null;
         $timedue = $instance->duedate ?? null;
 
-        $useroverride = $DB->get_record('assign_overrides', [
-            'assignid' => $this->cm->instance,
-            'userid' => $this->userid,
-        ]);
+        $cache = \cache::make('mod_assign', 'overrides');
+        $useroverride = $cache->get("{$this->cm->instance}_u_{$this->userid}");
         $overrides = $useroverride ? [$useroverride] : [];
 
         $groups = groups_get_user_groups((int) $this->cm->course, $this->userid);
         if (!empty($groups[0])) {
-            [$groupidsql, $params] = $DB->get_in_or_equal(array_values($groups[0]), SQL_PARAMS_NAMED);
-            $params['assignid'] = $this->cm->instance;
-            $overrides = array_merge($overrides, $DB->get_records_select(
-                'assign_overrides',
-                "assignid = :assignid AND groupid {$groupidsql}",
-                $params,
-            ));
+            foreach ($groups[0] as $groupid) {
+                $groupoverride = $cache->get("{$this->cm->instance}_g_{$groupid}");
+                if ($groupoverride) {
+                    $overrides[] = $groupoverride;
+                }
+            }
         }
 
         foreach ($overrides as $override) {

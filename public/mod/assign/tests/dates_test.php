@@ -195,4 +195,45 @@ final class dates_test extends advanced_testcase {
         $this->assertEquals($expected, $dates);
     }
 
+    /**
+     * Test get_dates_for_module uses the requested user rather than current user customdata.
+     */
+    public function test_get_dates_for_module_uses_requested_user_dates(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        /** @var \mod_assign_generator $assigngenerator */
+        $assigngenerator = $generator->get_plugin_generator('mod_assign');
+
+        $course = $generator->create_course();
+        $requesteduser = $generator->create_and_enrol($course, 'student');
+        $currentuser = $generator->create_and_enrol($course, 'student');
+
+        $now = time();
+        $assign = $assigngenerator->create_instance([
+            'course' => $course->id,
+            'allowsubmissionsfromdate' => $now + DAYSECS,
+            'duedate' => $now + (2 * DAYSECS),
+        ]);
+        $assigngenerator->create_override([
+            'assignid' => $assign->id,
+            'userid' => $currentuser->id,
+            'allowsubmissionsfromdate' => $now + (3 * DAYSECS),
+            'duedate' => $now + (4 * DAYSECS),
+        ]);
+
+        $this->setUser($currentuser);
+
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+        $cm = cm_info::create($cm);
+
+        $dates = activity_dates::get_dates_for_module($cm, (int) $requesteduser->id);
+
+        $this->assertEquals([
+            ['label' => get_string('activitydate:submissionsopen', 'mod_assign'), 'timestamp' => $now + DAYSECS,
+                'dataid' => 'allowsubmissionsfromdate'],
+            ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $now + (2 * DAYSECS),
+                'dataid' => 'duedate'],
+        ], $dates);
+    }
+
 }
