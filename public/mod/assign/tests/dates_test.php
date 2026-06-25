@@ -114,6 +114,12 @@ final class dates_test extends advanced_testcase {
                         'dataid' => 'duedate'],
                 ]
             ],
+            'with start date cleared by user override' => [
+                $after, $later, 0, $later, null, null, [
+                    ['label' => get_string('activitydate:submissionsdue', 'mod_assign'), 'timestamp' => $later,
+                        'dataid' => 'duedate'],
+                ]
+            ],
             'with later start and due date override' => [
                 $before, $after, $later, $later + WEEKSECS, null, null, [
                     ['label' => get_string('activitydate:submissionsopen', 'mod_assign'), 'timestamp' => $later,

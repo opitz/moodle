@@ -92,7 +92,7 @@ class dates extends activity_dates {
                 continue;
             }
 
-            if ($overrideclose == $timeclose && !empty($overrideopen) && (empty($timeopen) || $overrideopen < $timeopen)) {
+            if ($overrideclose == $timeclose && $overrideopen !== null && ($timeopen === null || $overrideopen < $timeopen)) {
                 $timeopen = $overrideopen;
             }
         }

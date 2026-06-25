@@ -100,6 +100,11 @@ final class dates_test extends advanced_testcase {
                     ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later, 'dataid' => 'timeclose'],
                 ]
             ],
+            'with open date cleared by user override' => [
+                $after, $later, 0, $later, null, null, [
+                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later, 'dataid' => 'timeclose'],
+                ]
+            ],
             'with later open and close override' => [
                 $before, $after, $later, $later + WEEKSECS, null, null, [
                     ['label' => get_string('activitydate:opens', 'course'), 'timestamp' => $later, 'dataid' => 'timeopen'],
@@ -115,8 +120,10 @@ final class dates_test extends advanced_testcase {
             ],
             'with both user and group overrides' => [
                 $before, $after, $earlier, $later, $earlier - DAYSECS, $later + DAYSECS, [
-                    ['label' => get_string('activitydate:opened', 'course'), 'timestamp' => $earlier - DAYSECS, 'dataid' => 'timeopen'],
-                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later + DAYSECS, 'dataid' => 'timeclose'],
+                    ['label' => get_string('activitydate:opened', 'course'), 'timestamp' => $earlier - DAYSECS,
+                        'dataid' => 'timeopen'],
+                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later + DAYSECS,
+                        'dataid' => 'timeclose'],
                 ]
             ],
             'with tied close overrides' => [

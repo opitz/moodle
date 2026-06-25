@@ -114,7 +114,7 @@ class dates extends activity_dates {
                 continue;
             }
 
-            if ($overridedue == $timedue && !empty($overrideopen) && (empty($timeopen) || $overrideopen < $timeopen)) {
+            if ($overridedue == $timedue && $overrideopen !== null && ($timeopen === null || $overrideopen < $timeopen)) {
                 $timeopen = $overrideopen;
             }
         }
