@@ -88,6 +88,30 @@ final class dates_test extends advanced_testcase {
                     ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later, 'dataid' => 'timeclose'],
                 ]
             ],
+            'with open-only user override' => [
+                $after, $later, $before, null, null, null, [
+                    ['label' => get_string('activitydate:opened', 'course'), 'timestamp' => $before, 'dataid' => 'timeopen'],
+                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later, 'dataid' => 'timeclose'],
+                ]
+            ],
+            'with open-only group override' => [
+                $after, $later, null, null, $before, null, [
+                    ['label' => get_string('activitydate:opened', 'course'), 'timestamp' => $before, 'dataid' => 'timeopen'],
+                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later, 'dataid' => 'timeclose'],
+                ]
+            ],
+            'with open date cleared by user override' => [
+                $after, $later, 0, $later, null, null, [
+                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later, 'dataid' => 'timeclose'],
+                ]
+            ],
+            'with later open and close override' => [
+                $before, $after, $later, $later + WEEKSECS, null, null, [
+                    ['label' => get_string('activitydate:opens', 'course'), 'timestamp' => $later, 'dataid' => 'timeopen'],
+                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later + WEEKSECS,
+                        'dataid' => 'timeclose'],
+                ]
+            ],
             'with group override' => [
                 $before, $after, null, null, $earlier, $later, [
                     ['label' => get_string('activitydate:opened', 'course'), 'timestamp' => $earlier, 'dataid' => 'timeopen'],
@@ -96,8 +120,23 @@ final class dates_test extends advanced_testcase {
             ],
             'with both user and group overrides' => [
                 $before, $after, $earlier, $later, $earlier - DAYSECS, $later + DAYSECS, [
+                    ['label' => get_string('activitydate:opened', 'course'), 'timestamp' => $earlier - DAYSECS,
+                        'dataid' => 'timeopen'],
+                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later + DAYSECS,
+                        'dataid' => 'timeclose'],
+                ]
+            ],
+            'with tied close overrides' => [
+                $before, $after, $later, $later, $earlier, $later, [
                     ['label' => get_string('activitydate:opened', 'course'), 'timestamp' => $earlier, 'dataid' => 'timeopen'],
                     ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later, 'dataid' => 'timeclose'],
+                ]
+            ],
+            'with later partial group close override' => [
+                $before, $after, $later, $later + DAYSECS, null, $later + WEEKSECS, [
+                    ['label' => get_string('activitydate:opened', 'course'), 'timestamp' => $before, 'dataid' => 'timeopen'],
+                    ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $later + WEEKSECS,
+                        'dataid' => 'timeclose'],
                 ]
             ],
         ];
@@ -172,4 +211,45 @@ final class dates_test extends advanced_testcase {
 
         $this->assertEquals($expected, $dates);
     }
+
+    /**
+     * Test get_dates_for_module uses the requested user rather than current user customdata.
+     */
+    public function test_get_dates_for_module_uses_requested_user_dates(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        /** @var \mod_quiz_generator $quizgenerator */
+        $quizgenerator = $generator->get_plugin_generator('mod_quiz');
+
+        $course = $generator->create_course();
+        $requesteduser = $generator->create_and_enrol($course, 'student');
+        $currentuser = $generator->create_and_enrol($course, 'student');
+
+        $now = time();
+        $quiz = $quizgenerator->create_instance([
+            'course' => $course->id,
+            'timeopen' => $now + DAYSECS,
+            'timeclose' => $now + (2 * DAYSECS),
+        ]);
+        $quizgenerator->create_override([
+            'quiz' => $quiz->id,
+            'userid' => $currentuser->id,
+            'timeopen' => $now + (3 * DAYSECS),
+            'timeclose' => $now + (4 * DAYSECS),
+        ]);
+
+        $this->setUser($currentuser);
+
+        $cm = get_coursemodule_from_instance('quiz', $quiz->id);
+        $cm = cm_info::create($cm);
+
+        $dates = activity_dates::get_dates_for_module($cm, (int) $requesteduser->id);
+
+        $this->assertEquals([
+            ['label' => get_string('activitydate:opens', 'course'), 'timestamp' => $now + DAYSECS, 'dataid' => 'timeopen'],
+            ['label' => get_string('activitydate:closes', 'course'), 'timestamp' => $now + (2 * DAYSECS),
+                'dataid' => 'timeclose'],
+        ], $dates);
+    }
+
 }

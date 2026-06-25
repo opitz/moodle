@@ -74,6 +74,17 @@ class override_manager {
     }
 
     /**
+     * Returns all overrides that apply to a user for a given quiz.
+     *
+     * @param int $quizid The quiz ID.
+     * @param int $userid The user ID.
+     * @return array Array of quiz_override records.
+     */
+    public static function get_overrides_for_user(int $quizid, int $userid): array {
+        return quiz_overrides_cache_manager::get_overrides($quizid, $userid);
+    }
+
+    /**
      * Validates the data, usually from a moodleform or a webservice call.
      * If it contains an 'id' property, additional validation is performed against the existing record.
      *

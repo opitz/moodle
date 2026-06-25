@@ -51,24 +51,77 @@ class dates extends activity_dates {
 
         $this->timedue = null;
 
-        $course = get_course($this->cm->course);
+        $course = get_course((int) $this->cm->course);
         $context = \context_module::instance($this->cm->id);
         $assign = new \assign($context, $this->cm, $course);
 
-        $timeopen = $this->cm->customdata['allowsubmissionsfromdate'] ?? null;
-        $timedue = $this->cm->customdata['duedate'] ?? null;
+        $instance = $assign->get_instance($this->userid);
+        $timeopen = $instance->allowsubmissionsfromdate ?? null;
+        $timedue = $instance->duedate ?? null;
+        $baseopen = $timeopen;
+        $basedue = $timedue;
 
-        $activitygroup = groups_get_activity_group($this->cm, true);
-        if ($activitygroup) {
-            if ($assign->can_view_grades()) {
-                $groupoverride = \cache::make('mod_assign', 'overrides')->get("{$this->cm->instance}_g_{$activitygroup}");
-                if (!empty($groupoverride->allowsubmissionsfromdate)) {
-                    $timeopen = $groupoverride->allowsubmissionsfromdate;
-                }
-                if (!empty($groupoverride->duedate)) {
-                    $timedue = $groupoverride->duedate;
+        $cache = \cache::make('mod_assign', 'overrides');
+        $useroverride = $cache->get("{$this->cm->instance}_u_{$this->userid}");
+        $overrides = $useroverride ? [$useroverride] : [];
+
+        $groups = groups_get_user_groups((int) $this->cm->course, $this->userid);
+        if (!empty($groups[0])) {
+            foreach ($groups[0] as $groupid) {
+                $groupoverride = $cache->get("{$this->cm->instance}_g_{$groupid}");
+                if ($groupoverride) {
+                    $overrides[] = $groupoverride;
                 }
             }
+        }
+        usort($overrides, static function(\stdClass $a, \stdClass $b) use ($baseopen, $basedue): int {
+            $aunlimited = isset($a->duedate) && empty($a->duedate);
+            $bunlimited = isset($b->duedate) && empty($b->duedate);
+            if ($aunlimited !== $bunlimited) {
+                return $aunlimited ? -1 : 1;
+            }
+
+            $adue = $a->duedate ?? $basedue;
+            $bdue = $b->duedate ?? $basedue;
+            $duecompare = ((int) ($bdue ?? 0)) <=> ((int) ($adue ?? 0));
+            if ($duecompare) {
+                return $duecompare;
+            }
+
+            $aopen = $a->allowsubmissionsfromdate ?? $baseopen;
+            $bopen = $b->allowsubmissionsfromdate ?? $baseopen;
+            $opencompare = ((int) ($aopen ?? 0)) <=> ((int) ($bopen ?? 0));
+            if ($opencompare) {
+                return $opencompare;
+            }
+
+            return ((int) ($a->id ?? 0)) <=> ((int) ($b->id ?? 0));
+        });
+
+        foreach ($overrides as $override) {
+            $overrideopen = $override->allowsubmissionsfromdate ?? $baseopen;
+            $overridedue = $override->duedate ?? $basedue;
+
+            if (isset($override->duedate) && empty($override->duedate)) {
+                $timeopen = $overrideopen;
+                $timedue = $override->duedate;
+                break;
+            }
+
+            if (!empty($overridedue) && (empty($timedue) || $overridedue > $timedue)) {
+                $timeopen = $overrideopen;
+                $timedue = $overridedue;
+                continue;
+            }
+
+            if ($overridedue == $timedue && $overrideopen !== null && ($timeopen === null || $overrideopen < $timeopen)) {
+                $timeopen = $overrideopen;
+            }
+        }
+
+        $userflags = $assign->get_user_flags($this->userid, false);
+        if (!empty($userflags->extensionduedate)) {
+            $timedue = empty($timedue) ? $userflags->extensionduedate : max($timedue, $userflags->extensionduedate);
         }
 
         $now = \core\di::get(\core\clock::class)->time();

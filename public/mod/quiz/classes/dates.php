@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace mod_quiz;
 
 use core\activity_dates;
+use mod_quiz\local\override_manager;
 
 /**
  * Class for fetching the important dates in mod_quiz for a given module instance and a user.
@@ -45,8 +46,57 @@ class dates extends activity_dates {
      * @return array
      */
     protected function get_dates(): array {
-        $timeopen = $this->cm->customdata['timeopen'] ?? null;
-        $timeclose = $this->cm->customdata['timeclose'] ?? null;
+        $quiz = $this->cm->get_instance_record();
+        $timeopen = !empty($quiz->timeopen) ? (int) $quiz->timeopen : null;
+        $timeclose = !empty($quiz->timeclose) ? (int) $quiz->timeclose : null;
+        $baseopen = $timeopen;
+        $baseclose = $timeclose;
+        $overrides = override_manager::get_overrides_for_user((int) $this->cm->instance, $this->userid);
+        usort($overrides, static function(\stdClass $a, \stdClass $b) use ($baseopen, $baseclose): int {
+            $aunlimited = isset($a->timeclose) && empty($a->timeclose);
+            $bunlimited = isset($b->timeclose) && empty($b->timeclose);
+            if ($aunlimited !== $bunlimited) {
+                return $aunlimited ? -1 : 1;
+            }
+
+            $aclose = $a->timeclose ?? $baseclose;
+            $bclose = $b->timeclose ?? $baseclose;
+            $closecompare = ((int) ($bclose ?? 0)) <=> ((int) ($aclose ?? 0));
+            if ($closecompare) {
+                return $closecompare;
+            }
+
+            $aopen = $a->timeopen ?? $baseopen;
+            $bopen = $b->timeopen ?? $baseopen;
+            $opencompare = ((int) ($aopen ?? 0)) <=> ((int) ($bopen ?? 0));
+            if ($opencompare) {
+                return $opencompare;
+            }
+
+            return ((int) ($a->id ?? 0)) <=> ((int) ($b->id ?? 0));
+        });
+
+        foreach ($overrides as $override) {
+            $overrideopen = $override->timeopen ?? $baseopen;
+            $overrideclose = $override->timeclose ?? $baseclose;
+
+            if (isset($override->timeclose) && empty($override->timeclose)) {
+                $timeopen = $overrideopen;
+                $timeclose = $override->timeclose;
+                break;
+            }
+
+            if (!empty($overrideclose) && (empty($timeclose) || $overrideclose > $timeclose)) {
+                $timeopen = $overrideopen;
+                $timeclose = $overrideclose;
+                continue;
+            }
+
+            if ($overrideclose == $timeclose && $overrideopen !== null && ($timeopen === null || $overrideopen < $timeopen)) {
+                $timeopen = $overrideopen;
+            }
+        }
+
         $this->timeclose = $timeclose ? (int) $timeclose : null;
 
         $now = time();
