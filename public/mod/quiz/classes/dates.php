@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace mod_quiz;
 
 use core\activity_dates;
-use mod_quiz\local\quiz_overrides_cache_manager;
+use mod_quiz\local\override_manager;
 
 /**
  * Class for fetching the important dates in mod_quiz for a given module instance and a user.
@@ -51,7 +51,7 @@ class dates extends activity_dates {
         $timeclose = !empty($quiz->timeclose) ? (int) $quiz->timeclose : null;
         $baseopen = $timeopen;
         $baseclose = $timeclose;
-        $overrides = quiz_overrides_cache_manager::get_overrides((int) $this->cm->instance, $this->userid);
+        $overrides = override_manager::get_overrides_for_user((int) $this->cm->instance, $this->userid);
         usort($overrides, static function(\stdClass $a, \stdClass $b) use ($baseopen, $baseclose): int {
             $aunlimited = isset($a->timeclose) && empty($a->timeclose);
             $bunlimited = isset($b->timeclose) && empty($b->timeclose);

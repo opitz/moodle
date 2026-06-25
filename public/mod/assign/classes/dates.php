@@ -74,6 +74,29 @@ class dates extends activity_dates {
                 }
             }
         }
+        usort($overrides, static function(\stdClass $a, \stdClass $b) use ($baseopen, $basedue): int {
+            $aunlimited = isset($a->duedate) && empty($a->duedate);
+            $bunlimited = isset($b->duedate) && empty($b->duedate);
+            if ($aunlimited !== $bunlimited) {
+                return $aunlimited ? -1 : 1;
+            }
+
+            $adue = $a->duedate ?? $basedue;
+            $bdue = $b->duedate ?? $basedue;
+            $duecompare = ((int) ($bdue ?? 0)) <=> ((int) ($adue ?? 0));
+            if ($duecompare) {
+                return $duecompare;
+            }
+
+            $aopen = $a->allowsubmissionsfromdate ?? $baseopen;
+            $bopen = $b->allowsubmissionsfromdate ?? $baseopen;
+            $opencompare = ((int) ($aopen ?? 0)) <=> ((int) ($bopen ?? 0));
+            if ($opencompare) {
+                return $opencompare;
+            }
+
+            return ((int) ($a->id ?? 0)) <=> ((int) ($b->id ?? 0));
+        });
 
         foreach ($overrides as $override) {
             $overrideopen = $override->allowsubmissionsfromdate ?? $baseopen;
